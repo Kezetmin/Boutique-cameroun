@@ -6,29 +6,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from shops.models import Shop
-from sales.models import Sale, SaleItem
 from products.models import Product
 from subscriptions.permissions import CanAccessAdvancedReports
+from sales.models import Sale, SaleItem, SalePayment
+from shops.utils import get_user_shop, get_user_role
 
-def get_user_shop(user):
-    """
-    Retourne la boutique de l'utilisateur connecté.
-    """
-    try:
-        return user.shop
-    except Shop.DoesNotExist:
-        return None
     
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def dashboard_stats(request):
-    """
-    Retourne les statistiques principales du dashboard
-    pour la boutique de l'utilisateur connecté.
-    """
     shop = get_user_shop(request.user)
+    role = get_user_role(request.user)
 
     if not shop:
         return Response(
@@ -36,38 +26,91 @@ def dashboard_stats(request):
             status=400
         )
 
-    # Date du jour
     today = timezone.localdate()
+    period = request.query_params.get('period', 'today')
 
-    # Ventes du jour pour la boutique connectée
-    today_sales = Sale.objects.filter(
+    if period == '7days':
+        start_date = today - timezone.timedelta(days=6)
+    elif period == '30days':
+        start_date = today - timezone.timedelta(days=29)
+    else:
+        period = 'today'
+        start_date = today
+
+    end_date = today
+
+    valid_sales_period = Sale.objects.filter(
         shop=shop,
-        created_at__date=today
+        status=Sale.VALIDATED,
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date
     )
 
-    # Nombre de ventes du jour
-    sales_count_today = today_sales.count()
+    cancelled_sales_period = Sale.objects.filter(
+        shop=shop,
+        status=Sale.CANCELLED,
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date
+    )
 
-    # Chiffre d'affaires du jour
-    total_sales_today = today_sales.aggregate(
+    if role == 'seller':
+        valid_sales_period = valid_sales_period.filter(user=request.user)
+        cancelled_sales_period = cancelled_sales_period.filter(user=request.user)
+
+    sales_count_today = valid_sales_period.count()
+
+    total_sales_today = valid_sales_period.aggregate(
         total=Sum('total_amount')
     )['total'] or Decimal('0.00')
 
-    # Calcul du bénéfice du jour
-    # bénéfice = somme des (prix vente - prix achat) * quantité
+    cash_collected_today = SalePayment.objects.filter(
+        shop=shop,
+        sale__status=Sale.VALIDATED,
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date
+    )
+
+    if role == 'seller':
+        cash_collected_today = cash_collected_today.filter(user=request.user)
+
+    cash_collected_today = cash_collected_today.aggregate(
+        total=Sum('amount')
+    )['total'] or Decimal('0.00')
+
     profit_expression = ExpressionWrapper(
         (F('unit_price') - F('product__purchase_price')) * F('quantity'),
         output_field=DecimalField(max_digits=12, decimal_places=2)
     )
 
-    today_profit = SaleItem.objects.filter(
+    sale_items_period = SaleItem.objects.filter(
         sale__shop=shop,
-        sale__created_at__date=today
-    ).aggregate(
+        sale__status=Sale.VALIDATED,
+        sale__created_at__date__gte=start_date,
+        sale__created_at__date__lte=end_date
+    )
+
+    if role == 'seller':
+        sale_items_period = sale_items_period.filter(sale__user=request.user)
+
+    today_profit = sale_items_period.aggregate(
         total_profit=Sum(profit_expression)
     )['total_profit'] or Decimal('0.00')
 
-    # Produits en stock faible
+    debts_sales = Sale.objects.filter(
+        shop=shop,
+        status=Sale.VALIDATED,
+        remaining_amount__gt=0
+    )
+
+    if role == 'seller':
+        debts_sales = debts_sales.filter(user=request.user)
+
+    total_remaining_debts = debts_sales.aggregate(
+        total=Sum('remaining_amount')
+    )['total'] or Decimal('0.00')
+
+    unpaid_sales_count = debts_sales.count()
+
     low_stock_products = Product.objects.filter(
         shop=shop,
         stock_quantity__lte=F('low_stock_threshold'),
@@ -84,10 +127,17 @@ def dashboard_stats(request):
             'category_name': product.category.name if product.category else None,
         })
 
-    # Top produits les plus vendus
     top_products = SaleItem.objects.filter(
-        sale__shop=shop
-    ).values(
+        sale__shop=shop,
+        sale__status=Sale.VALIDATED,
+        sale__created_at__date__gte=start_date,
+        sale__created_at__date__lte=end_date
+    )
+
+    if role == 'seller':
+        top_products = top_products.filter(sale__user=request.user)
+
+    top_products = top_products.values(
         'product',
         'product__name'
     ).annotate(
@@ -103,17 +153,29 @@ def dashboard_stats(request):
             'total_quantity_sold': item['total_quantity_sold'],
             'sales_count': item['sales_count'],
         })
-    total_products = Product.objects.filter(shop=shop, is_active=True).count()
+
     return Response({
         'shop_name': shop.name,
         'date': today,
+        'period': period,
+        'start_date': start_date,
+        'end_date': end_date,
+
+        'role': role,
+
         'sales_count_today': sales_count_today,
         'total_sales_today': total_sales_today,
         'today_profit': today_profit,
+        'cash_collected_today': cash_collected_today,
+
+        'total_remaining_debts': total_remaining_debts,
+        'unpaid_sales_count': unpaid_sales_count,
+
+        'cancelled_sales_today': cancelled_sales_period.count(),
+
         'low_stock_products': low_stock_data,
         'top_products': top_products_data,
     })
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, CanAccessAdvancedReports])
 def advanced_dashboard_stats(request):

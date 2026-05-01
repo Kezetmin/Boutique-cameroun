@@ -3,6 +3,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
+from shops.permissions import IsOwnerOrManager, IsShopMember
+
 from .models import Product, Category
 from .serializers import ProductSerializer, CategorySerializer
 from shops.models import Shop
@@ -11,20 +13,12 @@ from .models import Product, Category, StockMovement
 from .serializers import ProductSerializer, CategorySerializer, StockMovementSerializer
 from subscriptions.utils import can_create_product
 from subscriptions.permissions import HasValidSubscription
+from shops.utils import get_user_shop, get_user_role
 
-
-def get_user_shop(user):
-    """
-    Retourne la boutique de l'utilisateur connecté.
-    """
-    try:
-        return user.shop
-    except Shop.DoesNotExist:
-        return None
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated, HasValidSubscription])
+@permission_classes([IsAuthenticated, HasValidSubscription,IsOwnerOrManager])
 def category_list_create(request):
     """
     GET  -> liste les catégories de la boutique connectée
@@ -68,7 +62,7 @@ def category_list_create(request):
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([IsAuthenticated, HasValidSubscription])
+@permission_classes([IsAuthenticated,IsOwnerOrManager, HasValidSubscription])
 def category_detail(request, category_id):
     """
     GET    -> détail d’une catégorie
@@ -126,7 +120,7 @@ def category_detail(request, category_id):
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated,IsShopMember])
 def product_list_create(request):
     """
     GET  -> liste les produits de la boutique connectée
@@ -146,14 +140,19 @@ def product_list_create(request):
         return Response(serializer.data)
 
     if request.method == 'POST':
+        if not IsOwnerOrManager().has_permission(request, None):
+            return Response(
+                {'error':'Action réservée au propriétaire ou au gérant.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         can_create, error_message = can_create_product(shop)
+
         if not can_create:
             return Response(
                 {'error': error_message},
                 status=status.HTTP_403_FORBIDDEN
             )
         serializer = ProductSerializer(data=request.data)
-
         if serializer.is_valid():
             category = None
             category_id = serializer.validated_data.get('category')
@@ -165,7 +164,6 @@ def product_list_create(request):
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 category = category_id
-
             serializer.save(shop=shop, category=category)
             return Response(
                 {
@@ -174,12 +172,10 @@ def product_list_create(request):
                 },
                 status=status.HTTP_201_CREATED
             )
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 @api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated,IsShopMember])
 def product_detail(request, product_id):
     """
     GET    -> détail d’un produit
@@ -207,9 +203,14 @@ def product_detail(request, product_id):
         return Response(serializer.data)
 
     if request.method == 'PUT':
-        serializer = ProductSerializer(product, data=request.data)
+         if not IsOwnerOrManager().has_permission(request, None):
+             return Response(
+                 {'error':'Action réservée au propriétaire ou au gérant.'},
+                 status=status.HTTP_403_FORBIDDEN
+             )
+         serializer = ProductSerializer(product, data=request.data)
 
-        if serializer.is_valid():
+         if serializer.is_valid():
             category = serializer.validated_data.get('category')
 
             if category and category.shop != shop:
@@ -226,9 +227,14 @@ def product_detail(request, product_id):
                 }
             )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == 'DELETE':
+        if not IsOwnerOrManager().has_permission(request, None):
+            return Response(
+                {'error':'Action réservée au propriétaire ou au gérant.'},
+                status=status.HTTP_403_FORBIDDEN
+            ) 
         product.delete()
         return Response(
             {'message': 'Produit supprimé avec succès.'},
@@ -236,7 +242,7 @@ def product_detail(request, product_id):
         )
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated,IsOwnerOrManager])
 def stock_entry(request):
     """
     Permet d'ajouter du stock à un produit de la boutique connectée.

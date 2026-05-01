@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
+from shops.utils import get_user_membership
 
 
 @api_view(['POST'])
@@ -84,14 +85,27 @@ def login_user(request):
 @permission_classes([IsAuthenticated])
 def profile_view(request):
     """
-    Route protégée.
-    Permet de tester si l'utilisateur est bien connecté avec son token.
+    Retourne les informations de l'utilisateur connecté,
+    avec son rôle dans la boutique.
     """
-    has_shop = hasattr(request.user, 'shop')
+    membership = get_user_membership(request.user)
+
+    has_shop = membership is not None
+    role = membership.role if membership else None
+    shop_name = membership.shop.name if membership else None
 
     return Response({
         'message': 'Vous êtes connecté.',
         'username': request.user.username,
         'user_id': request.user.id,
-        'has_shop': has_shop
+
+        # Boutique
+        'has_shop': has_shop,
+        'shop_name': shop_name,
+
+        # Rôle multi-utilisateur
+        'role': role,
+        'is_owner': role == 'owner',
+        'is_manager': role == 'manager',
+        'is_seller': role == 'seller',
     })

@@ -8,16 +8,9 @@ from rest_framework import status
 from shops.models import Shop
 from .models import Plan, Subscription
 from .serializers import PlanSerializer, SubscriptionSerializer
+from shops.permissions import IsOwner
+from shops.utils import get_user_shop
 
-
-def get_user_shop(user):
-    """
-    Retourne la boutique de l'utilisateur connecté.
-    """
-    try:
-        return user.shop
-    except Shop.DoesNotExist:
-        return None
 
 
 @api_view(['GET'])
@@ -35,13 +28,14 @@ def plan_list(request):
 @permission_classes([IsAuthenticated])
 def my_subscription(request):
     """
-    Retourne l'abonnement de la boutique connectée.
+    Retourne l'abonnement de la boutique liée à l'utilisateur connecté.
+    Fonctionne pour owner, manager et seller.
     """
     shop = get_user_shop(request.user)
 
     if not shop:
         return Response(
-            {'error': 'Vous devez d’abord créer une boutique.'},
+            {'error': 'Vous n’êtes lié à aucune boutique.'},
             status=status.HTTP_400_BAD_REQUEST
         )
 
@@ -54,11 +48,12 @@ def my_subscription(request):
         )
 
     serializer = SubscriptionSerializer(subscription)
+
     return Response(serializer.data)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated,IsOwner])
 def activate_subscription(request):
     """
     Active ou renouvelle l'abonnement d'une boutique.
@@ -113,7 +108,7 @@ def activate_subscription(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated,IsOwner])
 def deactivate_subscription(request):
     """
     Désactive l'abonnement de la boutique connectée.
