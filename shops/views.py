@@ -13,6 +13,13 @@ from sales.models import Sale, SaleItem, SalePayment
 from products.models import Product, Category, StockMovement
 from customers.models import Customer
 from inventory.models import InventorySession, InventoryItem
+from subscriptions.utils import (
+    get_shop_plan,
+    can_create_product,
+    can_access_advanced_reports,
+    can_manage_customer_credits
+)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
