@@ -148,10 +148,12 @@ CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOWED_ORIGINS = [
     "https://frontend-gestion-boutique.vercel.app",
+    "https://frontend-gestion-boutique-git-main-kezetmins-projects.vercel.app",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://frontend-gestion-boutique.vercel.app",
+    "https://frontend-gestion-boutique-git-main-kezetmins-projects.vercel.app",
 ]
 
 REST_FRAMEWORK = {
