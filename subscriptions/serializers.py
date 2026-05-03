@@ -33,6 +33,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             'id',
             'shop_name',
             'plan',
+            'is_trial'
             'plan_name',
             'start_date',
             'end_date',
