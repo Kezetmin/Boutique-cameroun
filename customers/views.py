@@ -13,7 +13,7 @@ from shops.utils import get_user_shop
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated,IsShopMember])
+@permission_classes([IsAuthenticated])
 def customer_list_create(request):
     """
     GET  -> liste les clients de la boutique connectée
