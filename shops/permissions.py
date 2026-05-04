@@ -55,16 +55,26 @@ class CanSell(BasePermission):
     Autorise owner, manager et seller à vendre.
     """
 
-    message = "Vous n'avez pas le droit d'enregistrer une vente."
-
     def has_permission(self, request, view):
-        membership = get_user_membership(request.user)
+        user = request.user
 
-        if not membership:
+        if not user or not user.is_authenticated:
             return False
 
-        return membership.role in [
-            ShopMember.OWNER,
+        # 1. Le propriétaire réel de la boutique peut vendre
+        if Shop.objects.filter(user=user).exists():
+            return True
+
+        # 2. Les employés actifs peuvent vendre
+        membership = ShopMember.objects.filter(
+            user=user,
+            is_active=True
+        ).first()
+
+        if membership and membership.role in [
             ShopMember.MANAGER,
-            ShopMember.SELLER
-        ]
+            ShopMember.SELLER,
+        ]:
+            return True
+
+        return False

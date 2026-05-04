@@ -22,6 +22,7 @@ from subscriptions.utils import can_manage_customer_credits
 from subscriptions.utils import can_access_advanced_reports
 from django.utils import timezone as dj_timezone
 from subscriptions.utils import can_access_advanced_reports
+from shops.utils import get_user_role
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated,CanSell])
@@ -44,7 +45,11 @@ def sale_list_create(request):
         if role == 'seller':
             sales = sales.filter(user=request.user)
        
-        
+        if role not in ['owner', 'manager', 'seller']:
+            return Response(
+                {'error': "Vous n'avez pas le droit de vendre."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         sale_status = request.query_params.get('status')
         if sale_status:
             sales = sales.filter(status=sale_status)
