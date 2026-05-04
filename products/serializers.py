@@ -103,6 +103,7 @@ class StockMovementSerializer(serializers.ModelSerializer):
             'movement_type_display',
             'quantity',
             'note',
+            'supplier',
             'created_at',
         ]
         read_only_fields = [

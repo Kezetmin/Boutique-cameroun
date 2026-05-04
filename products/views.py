@@ -259,6 +259,7 @@ def stock_entry(request):
     product_id = request.data.get('product')
     quantity = request.data.get('quantity')
     note = request.data.get('note', '')
+    supplier = request.data.get('supplier', '')
 
     if not product_id:
         return Response(
@@ -293,7 +294,8 @@ def stock_entry(request):
             user=request.user,
             movement_type=StockMovement.IN,
             quantity=quantity,
-            note=note
+            note=note,
+            supplier=supplier
         )
 
     serializer = StockMovementSerializer(movement)

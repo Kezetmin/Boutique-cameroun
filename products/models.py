@@ -156,6 +156,7 @@ class StockMovement(models.Model):
         choices=MOVEMENT_TYPES,
         default=IN
     )
+    supplier = models.CharField(max_length=150,blank=True,null=True)
 
     quantity = models.PositiveIntegerField()
 
