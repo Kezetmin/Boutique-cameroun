@@ -80,7 +80,6 @@ def login_user(request):
         {'error': 'Identifiants invalides.'},
         status=status.HTTP_400_BAD_REQUEST
     )
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def profile_view(request):
@@ -88,11 +87,21 @@ def profile_view(request):
     Retourne les informations de l'utilisateur connecté,
     avec son rôle dans la boutique.
     """
-    membership = get_user_membership(request.user)
 
-    has_shop = membership is not None
-    role = membership.role if membership else None
-    shop_name = membership.shop.name if membership else None
+    # 1. Vérifier si l'utilisateur est propriétaire d'une boutique
+    try:
+        shop = request.user.shop
+        role = 'owner'
+        has_shop = True
+        shop_name = shop.name
+
+    except:
+        # 2. Sinon vérifier s'il est membre d'une boutique
+        membership = get_user_membership(request.user)
+
+        has_shop = membership is not None
+        role = membership.role if membership else None
+        shop_name = membership.shop.name if membership else None
 
     return Response({
         'message': 'Vous êtes connecté.',
