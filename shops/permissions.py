@@ -18,21 +18,18 @@ class IsShopMember(BasePermission):
         return membership is not None
 
 
+
 class IsOwner(BasePermission):
     """
-    Réservé au propriétaire de la boutique.
+    Autorise uniquement le propriétaire réel de la boutique.
     """
 
-    message = "Action réservée au propriétaire de la boutique."
-
     def has_permission(self, request, view):
-        membership = get_user_membership(request.user)
+        # propriétaire principal
+        if Shop.objects.filter(user=request.user).exists():
+            return True
 
-        if not membership:
-            return False
-
-        return membership.role == ShopMember.OWNER
-
+        return False
 
 class IsOwnerOrManager(BasePermission):
     def has_permission(self, request, view):
