@@ -120,7 +120,7 @@ def category_detail(request, category_id):
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated,IsShopMember])
+@permission_classes([IsAuthenticated])
 def product_list_create(request):
     """
     GET  -> liste les produits de la boutique connectée
@@ -175,7 +175,7 @@ def product_list_create(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([IsAuthenticated,IsShopMember])
+@permission_classes([IsAuthenticated])
 def product_detail(request, product_id):
     """
     GET    -> détail d’un produit
