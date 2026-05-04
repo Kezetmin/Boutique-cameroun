@@ -62,9 +62,19 @@ def get_user_membership(user):
 
 def get_user_role(user):
     """
-    Retourne le rôle de l'utilisateur dans sa boutique.
+    Retourne le rôle réel de l'utilisateur :
+    owner / manager / seller
     """
-    membership = get_user_membership(user)
+
+    # propriétaire de boutique
+    if Shop.objects.filter(user=user).exists():
+        return 'owner'
+
+    # employés
+    membership = ShopMember.objects.filter(
+        user=user,
+        is_active=True
+    ).first()
 
     if membership:
         return membership.role

@@ -1,6 +1,6 @@
 from rest_framework.permissions import BasePermission
 from .utils import get_user_membership
-from .models import ShopMember
+from .models import ShopMember,Shop
 
 
 class IsShopMember(BasePermission):
@@ -35,19 +35,22 @@ class IsOwner(BasePermission):
 
 
 class IsOwnerOrManager(BasePermission):
-    """
-    Autorisé au propriétaire et au gérant.
-    """
-
-    message = "Action réservée au propriétaire ou au gérant."
-
     def has_permission(self, request, view):
-        membership = get_user_membership(request.user)
 
-        if not membership:
-            return False
+        # propriétaire
+        if Shop.objects.filter(user=request.user).exists():
+            return True
 
-        return membership.role in [ShopMember.OWNER, ShopMember.MANAGER]
+        # manager
+        membership = ShopMember.objects.filter(
+            user=request.user,
+            is_active=True
+        ).first()
+
+        if membership and membership.role == 'manager':
+            return True
+
+        return False
 
 
 class CanSell(BasePermission):
