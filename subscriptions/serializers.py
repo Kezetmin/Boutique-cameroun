@@ -1,3 +1,5 @@
+from django.utils import timezone
+
 from rest_framework import serializers
 from .models import Plan, Subscription
 
@@ -26,6 +28,15 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     shop_name = serializers.CharField(source='shop.name', read_only=True)
     is_valid = serializers.SerializerMethodField()
     has_expired = serializers.SerializerMethodField()
+    days_remaining = serializers.SerializerMethodField()
+
+    def get_days_remaining(self, obj):
+        today = timezone.localdate()
+
+        if obj.end_date < today:
+            return 0
+
+        return (obj.end_date - today).days
 
     class Meta:
         model = Subscription
@@ -34,6 +45,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             'shop_name',
             'plan',
             'plan_name',
+            'days_remaining',
             'is_trial',
             'start_date',
             'end_date',
@@ -51,3 +63,11 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 
     def get_has_expired(self, obj):
         return obj.has_expired()
+    
+    def get_days_remaining(self, obj):
+        today = timezone.localdate()
+
+        if obj.end_date < today:
+            return 0
+
+        return (obj.end_date - today).days
